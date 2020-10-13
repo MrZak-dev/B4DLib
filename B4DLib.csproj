@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="Lib\**" />
+    <EmbeddedResource Remove="Lib\**" />
+    <None Remove="Lib\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Remove=".gitignore" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="GodotSharp">
+      <HintPath>Lib\GodotSharp.dll</HintPath>
+    </Reference>
+    <Reference Include="Nakama">
+      <HintPath>Lib\Nakama.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+</Project>
