@@ -36,13 +36,15 @@ namespace B4DLib
         /// Emitted when a channel message is received.
         /// </summary>
         public static event Action<IApiChannelMessage> ChannelMessageReceived;
+
+        public static event Action<IMatchmakerMatched> MatchmakerStatusReceived;
         
 
         #endregion
      
         //Config
         private const string Host = "127.0.01";
-        private const string Key = "nakama_godot_demo";
+        private const string Key = "nakama_key";
         private const int Port = 7350;
         private const string Scheme = "http";
 
@@ -110,6 +112,7 @@ namespace B4DLib
                 NakamaSocket.Closed += NakamaSocketOnClosed;
                 NakamaSocket.ReceivedMatchState += NakamaSocketOnReceivedMatchState;
                 NakamaSocket.ReceivedChannelMessage += NakamaSocketOnReceivedChannelMessage;
+                NakamaSocket.ReceivedMatchmakerMatched += NakamaSocketOnReceivedMatchmakerMatched;
 
                 await NakamaSocket.ConnectAsync(NakamaSession);
 
@@ -120,22 +123,23 @@ namespace B4DLib
             }
         }
 
+
         /// <summary>
         /// Signal emitted when a socket match state is received.
         /// </summary>
-        /// <param name="obj">Match state object</param>
-        private static void NakamaSocketOnReceivedMatchState(IMatchState obj)
+        /// <param name="state">Match state object</param>
+        private static void NakamaSocketOnReceivedMatchState(IMatchState state)
         {
-            MatchStateReceived?.Invoke(obj);
+            MatchStateReceived?.Invoke(state);
         }
 
         /// <summary>
         /// Signal emitted when a socket channel message is received.
         /// </summary>
-        /// <param name="obj">Channel Message Object</param>
-        private static void NakamaSocketOnReceivedChannelMessage(IApiChannelMessage obj)
+        /// <param name="content">Channel Message Object</param>
+        private static void NakamaSocketOnReceivedChannelMessage(IApiChannelMessage content)
         {
-            ChannelMessageReceived?.Invoke(obj);
+            ChannelMessageReceived?.Invoke(content);
         }
 
         /// <summary>
@@ -154,6 +158,14 @@ namespace B4DLib
             Closed?.Invoke();
         }
 
+        /// <summary>
+        /// Signal emitted when a matchmaker match happened with another user.
+        /// </summary>
+        /// <param name="matched"></param>
+        private static void NakamaSocketOnReceivedMatchmakerMatched(IMatchmakerMatched matched)
+        {
+            MatchmakerStatusReceived?.Invoke(matched);
+        }
 
         /// <summary>
         /// Restore nakama Server connection .
@@ -200,6 +212,23 @@ namespace B4DLib
             try
             {
                 NakamaMatches[matchId] = await NakamaSocket.JoinMatchAsync(matchId);
+            }
+            catch (Exception e)
+            {
+                GD.Print(e);
+            }
+        }
+
+        /// <summary>
+        /// Join a Match by a given matchmaker matched.
+        /// </summary>
+        /// <param name="matched"></param>
+        /// <returns></returns>
+        public static async Task JoinMatchAsync(IMatchmakerMatched matched)
+        {
+            try
+            {
+                NakamaMatches[matched.MatchId] = await NakamaSocket.JoinMatchAsync(matched);
             }
             catch (Exception e)
             {
@@ -300,10 +329,61 @@ namespace B4DLib
             }
         }
 
+        /// <summary>
+        /// Create a matchmaker and returns a matchmaker ticket.
+        /// </summary>
+        /// <param name="matchmakerProperties">Matchmaker properties type of MatchmakerProperties </param>
+        /// <returns>IMatchmakerTicket</returns>
+        public static async Task<IMatchmakerTicket> CreateMatchmaker(MatchmakerProperties matchmakerProperties)
+        {
+            try
+            {
+                var matchmakerTicket = await NakamaSocket.AddMatchmakerAsync(
+                    matchmakerProperties.Query,
+                    matchmakerProperties.MinCount,
+                    matchmakerProperties.MaxCount,
+                    matchmakerProperties.StringProperties,
+                    matchmakerProperties.NumericProperties
+                );
+                return matchmakerTicket;
+            }
+            catch (Exception e)
+            {
+                GD.PrintErr(e);
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Remove a user from the matchmaker.
+        /// </summary>
+        /// <param name="matchmakerTicket"></param>
+        /// <returns></returns>
+        public static async Task RemoveMatchmaker(IMatchmakerTicket matchmakerTicket)
+        {
+            try
+            {
+                await NakamaSocket.RemoveMatchmakerAsync(matchmakerTicket);
+            }
+            catch (Exception e)
+            {
+                GD.PrintErr(e);
+            }
+        }
+
 
     }
-    
- 
 
+    /// <summary>
+    /// A matchmaker properties , required to create and add a Nakama matchmaker .
+    /// </summary>
+    public class MatchmakerProperties
+    {
+        public string Query { get; set; } = "*";
+        public int MinCount { get; set; } = 2;
+        public int MaxCount { get; set; } = 2;
+        public Dictionary<string, string> StringProperties { get; set; } = null;
+        public Dictionary<string, double> NumericProperties { get; set; } = null;
+    }
 
 }
