@@ -7,7 +7,7 @@ using Encoding = System.Text.Encoding;
 
 namespace B4DLib
 {
-    public static class ServerConnection
+    public static class NakamaServer
     {
         public enum ReadPermission
         {
@@ -36,23 +36,25 @@ namespace B4DLib
         /// Emitted when a channel message is received.
         /// </summary>
         public static event Action<IApiChannelMessage> ChannelMessageReceived;
-
+        /// <summary>
+        /// Emitted when a Matchmaker matched status is received.
+        /// </summary>
         public static event Action<IMatchmakerMatched> MatchmakerStatusReceived;
         
 
         #endregion
      
         //Config
-        private const string Host = "127.0.01";
+        private const string Host = "127.0.0.1";
         private const string Key = "nakama_key";
         private const int Port = 7350;
         private const string Scheme = "http";
 
         //Server
-        private static Client NakamaClient;
-        public static Session NakamaSession;
-        private static Socket NakamaSocket;
-        public static readonly Dictionary<string,IMatch> NakamaMatches = new Dictionary<string, IMatch>();
+        private static IClient NakamaClient;
+        public static ISession NakamaSession;
+        private static ISocket NakamaSocket;
+
         public static readonly Dictionary<string, IChannel> ChatChannels = new Dictionary<string, IChannel>();
 
         //User
@@ -60,7 +62,7 @@ namespace B4DLib
 
 
         ///<summary>
-        /// Initialize a nakama server connection.
+        /// Initialize a Nakama server connection.
         /// </summary>
         /// <param name="host">Nakama Server Host default localhost</param>
         /// <param name="key">Nakama Key set in docker-compose.yml</param>
@@ -89,7 +91,7 @@ namespace B4DLib
         {
             try
             {
-                NakamaSession = (Session) await NakamaClient.AuthenticateEmailAsync(email, password, username, createAccount);
+                NakamaSession =  await NakamaClient.AuthenticateEmailAsync(email, password, username, createAccount);
                 AccessToken = NakamaSession.AuthToken;
             }
             catch (Exception e)
@@ -99,14 +101,14 @@ namespace B4DLib
         }
 
         /// <summary>
-        /// Open a nakama server socket connection
+        /// Open a Nakama server socket connection
         /// </summary>
         /// <returns></returns>
-        public static async Task OpenConnection()
+        public static async Task OpenConnectionAsync()
         {
             try
             {
-                NakamaSocket = new Socket();
+                NakamaSocket = Socket.From(NakamaClient);
 
                 NakamaSocket.Connected += NakamaSocketOnConnected;
                 NakamaSocket.Closed += NakamaSocketOnClosed;
@@ -123,6 +125,37 @@ namespace B4DLib
             }
         }
 
+        /// <summary>
+        /// Close a Nakama server socket connection.
+        /// </summary>
+        /// <returns></returns>
+        public static async Task CloseConnectionAsync()
+        {
+            try
+            {
+                await NakamaSocket.CloseAsync();
+            }
+            catch (Exception e)
+            {
+                GD.PrintErr(e);
+            }
+        }
+
+        /// <summary>
+        /// Restore Nakama Server connection .
+        /// </summary>
+        /// <param name="accessToken">default = null ,the last access token saved will be used !</param>
+        public static void RestoreConnection(string accessToken = null)
+        {
+            try
+            {
+                NakamaSession = Session.Restore(accessToken ?? AccessToken);
+            }
+            catch (Exception e)
+            {
+                GD.PrintErr(e);
+            }
+        }
 
         /// <summary>
         /// Signal emitted when a socket match state is received.
@@ -167,21 +200,7 @@ namespace B4DLib
             MatchmakerStatusReceived?.Invoke(matched);
         }
 
-        /// <summary>
-        /// Restore nakama Server connection .
-        /// </summary>
-        /// <param name="accessToken">default = null ,the last access token saved will be used !</param>
-        public static void RestoreConnection(string accessToken = null)
-        {
-            try
-            {
-                NakamaSession = (Session) Session.Restore(accessToken ?? AccessToken);
-            }
-            catch (Exception e)
-            {
-                GD.PrintErr(e);
-            }
-        }
+        
 
         /// <summary>
         /// Call an RPC function from defined in lua modules
@@ -206,16 +225,17 @@ namespace B4DLib
         /// Join a Match by a given match id.
         /// </summary>
         /// <param name="matchId">Payload of an RPC world function.</param>
-        /// <returns></returns>
-        public static async Task JoinMatchAsync(string matchId)
+        /// <returns>IMatch</returns>
+        public static async Task<IMatch> JoinMatchAsync(string matchId)
         {
             try
             {
-                NakamaMatches[matchId] = await NakamaSocket.JoinMatchAsync(matchId);
+                return await NakamaSocket.JoinMatchAsync(matchId);
             }
             catch (Exception e)
             {
-                GD.Print(e);
+                GD.PrintErr(e);
+                return null;
             }
         }
 
@@ -223,16 +243,51 @@ namespace B4DLib
         /// Join a Match by a given matchmaker matched.
         /// </summary>
         /// <param name="matched"></param>
-        /// <returns></returns>
-        public static async Task JoinMatchAsync(IMatchmakerMatched matched)
+        /// <returns>IMatch</returns>
+        public static async Task<IMatch> JoinMatchAsync(IMatchmakerMatched matched)
         {
             try
             {
-                NakamaMatches[matched.MatchId] = await NakamaSocket.JoinMatchAsync(matched);
+                return await NakamaSocket.JoinMatchAsync(matched);
             }
             catch (Exception e)
             {
-                GD.Print(e);
+                GD.PrintErr(e);
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Leave a match by a given match id.
+        /// </summary>
+        /// <param name="matchId">Match ID</param>
+        /// <returns></returns>
+        public static async Task LeaveMatchAsync(string matchId)
+        {
+            try
+            {
+                await NakamaSocket.LeaveMatchAsync(matchId);
+            }
+            catch (Exception e)
+            {
+                GD.PrintErr(e);
+            }
+        }
+
+        /// <summary>
+        /// Leave a match by a given Match object.
+        /// </summary>
+        /// <param name="match">Match object</param>
+        /// <returns></returns>
+        public static async Task LeaveMatchAsync(IMatch match)
+        {
+            try
+            {
+                await NakamaSocket.LeaveMatchAsync(match);
+            }
+            catch (Exception e)
+            {
+                GD.PrintErr(e);
             }
         }
 
@@ -268,6 +323,25 @@ namespace B4DLib
             try
             {
                 ChatChannels[chatChannelName] = await NakamaSocket.JoinChatAsync(chatChannelName, channelType);
+            }
+            catch (Exception e)
+            {
+                GD.PrintErr(e);
+            }
+        }
+
+        /// <summary>
+        /// Leave A Chat Channel  by Channel name used to join the group.
+        /// </summary>
+        /// <param name="chatChannelName"></param>
+        /// <returns></returns>
+        public static async Task LeaveChatAsync(string chatChannelName)
+        {
+            try
+            {
+                var channel = ChatChannels[chatChannelName];
+                ChatChannels[chatChannelName] = null; // Remove the channel from channels list
+                await NakamaSocket.LeaveChatAsync(channel);
             }
             catch (Exception e)
             {
@@ -334,7 +408,7 @@ namespace B4DLib
         /// </summary>
         /// <param name="matchmakerProperties">Matchmaker properties type of MatchmakerProperties </param>
         /// <returns>IMatchmakerTicket</returns>
-        public static async Task<IMatchmakerTicket> CreateMatchmaker(MatchmakerProperties matchmakerProperties)
+        public static async Task<IMatchmakerTicket> CreateMatchmakerAsync(MatchmakerProperties matchmakerProperties)
         {
             try
             {
@@ -359,7 +433,7 @@ namespace B4DLib
         /// </summary>
         /// <param name="matchmakerTicket"></param>
         /// <returns></returns>
-        public static async Task RemoveMatchmaker(IMatchmakerTicket matchmakerTicket)
+        public static async Task RemoveMatchmakerAsync(IMatchmakerTicket matchmakerTicket)
         {
             try
             {
