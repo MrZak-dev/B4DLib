@@ -27,11 +27,19 @@ namespace B4DLib
         /// <summary>
         /// Emitted when a socket connection is closed.
         /// </summary>
-        public static event Action Closed;  
+        public static event Action Closed;
+        /// <summary>
+        /// Emitted when a there is an error.
+        /// </summary>
+        public static event Action<Exception> Error;
         /// <summary>
         /// Emitted when a Match state is received.
         /// </summary>
         public static event Action<IMatchState> MatchStateReceived;
+        /// <summary>
+        /// Emitted when a Match presence is received.
+        /// </summary>
+        public static event Action<IMatchPresenceEvent> MatchPresenceReceived;
         /// <summary>
         /// Emitted when a channel message is received.
         /// </summary>
@@ -39,7 +47,7 @@ namespace B4DLib
         /// <summary>
         /// Emitted when a Matchmaker matched status is received.
         /// </summary>
-        public static event Action<IMatchmakerMatched> MatchmakerStatusReceived;
+        public static event Action<IMatchmakerMatched> MatchmakerMatched;
         
 
         #endregion
@@ -52,7 +60,7 @@ namespace B4DLib
 
         //Server
         private static IClient NakamaClient;
-        public static ISession NakamaSession;
+        private static ISession NakamaSession;
         private static ISocket NakamaSocket;
 
         public static readonly Dictionary<string, IChannel> ChatChannels = new Dictionary<string, IChannel>();
@@ -80,18 +88,37 @@ namespace B4DLib
         }
 
         /// <summary>
-        /// Authenticate the user 
+        /// Authenticate the user using an email and password .
         /// </summary>
         /// <param name="email"></param>
         /// <param name="password"></param>
         /// <param name="username"></param>
-        /// <param name="createAccount">true = SignUp , false = login </param>
+        /// <param name="createAccount">true = SignUp , false = login</param>
         /// <returns></returns>
         public static async Task AuthenticateAsync(string email , string password ,string username = null, bool createAccount = true)
         {
             try
             {
                 NakamaSession =  await NakamaClient.AuthenticateEmailAsync(email, password, username, createAccount);
+                AccessToken = NakamaSession.AuthToken;
+            }
+            catch (Exception e)
+            {
+                GD.PrintErr(e);
+            }
+        }
+
+        /// <summary>
+        /// Authenticate the user with a custom ID 
+        /// </summary>
+        /// <param name="id">Custom ID</param>
+        /// <param name="username">Username</param>
+        /// <param name="createAccount">true = SignUp , false = login</param>
+        public static async Task AuthenticateAsync(string id , string username = null , bool createAccount = true )
+        {
+            try
+            {
+                NakamaSession = await NakamaClient.AuthenticateCustomAsync(id, username, createAccount);
                 AccessToken = NakamaSession.AuthToken;
             }
             catch (Exception e)
@@ -110,11 +137,13 @@ namespace B4DLib
             {
                 NakamaSocket = Socket.From(NakamaClient);
 
-                NakamaSocket.Connected += NakamaSocketOnConnected;
-                NakamaSocket.Closed += NakamaSocketOnClosed;
-                NakamaSocket.ReceivedMatchState += NakamaSocketOnReceivedMatchState;
-                NakamaSocket.ReceivedChannelMessage += NakamaSocketOnReceivedChannelMessage;
-                NakamaSocket.ReceivedMatchmakerMatched += NakamaSocketOnReceivedMatchmakerMatched;
+                NakamaSocket.Connected += OnConnected;
+                NakamaSocket.Closed += OnClosed;
+                NakamaSocket.ReceivedError += OnError;
+                NakamaSocket.ReceivedMatchState += OnReceivedMatchState;
+                NakamaSocket.ReceivedMatchPresence += OnReceivedMatchPresence;
+                NakamaSocket.ReceivedChannelMessage += OnReceivedChannelMessage;
+                NakamaSocket.ReceivedMatchmakerMatched += OnReceivedMatchmakerMatched;
 
                 await NakamaSocket.ConnectAsync(NakamaSession);
 
@@ -124,6 +153,8 @@ namespace B4DLib
                 GD.PrintErr(e);
             }
         }
+
+       
 
         /// <summary>
         /// Close a Nakama server socket connection.
@@ -161,16 +192,25 @@ namespace B4DLib
         /// Signal emitted when a socket match state is received.
         /// </summary>
         /// <param name="state">Match state object</param>
-        private static void NakamaSocketOnReceivedMatchState(IMatchState state)
+        private static void OnReceivedMatchState(IMatchState state)
         {
             MatchStateReceived?.Invoke(state);
+        }
+
+        /// <summary>
+        /// Signal emitted when a Match presences is received.
+        /// </summary>
+        /// <param name="presences">Presences Joins And Leaves</param>
+        private static void OnReceivedMatchPresence(IMatchPresenceEvent presences)
+        {
+            MatchPresenceReceived?.Invoke(presences);
         }
 
         /// <summary>
         /// Signal emitted when a socket channel message is received.
         /// </summary>
         /// <param name="content">Channel Message Object</param>
-        private static void NakamaSocketOnReceivedChannelMessage(IApiChannelMessage content)
+        private static void OnReceivedChannelMessage(IApiChannelMessage content)
         {
             ChannelMessageReceived?.Invoke(content);
         }
@@ -178,7 +218,7 @@ namespace B4DLib
         /// <summary>
         /// Signal emitted when a socket connection is established.
         /// </summary>
-        private static void NakamaSocketOnConnected()
+        private static void OnConnected()
         {
             Connected?.Invoke();
         }
@@ -186,18 +226,26 @@ namespace B4DLib
         /// <summary>
         /// Signal emitted when a socket connection is closed.
         /// </summary>
-        private static void NakamaSocketOnClosed()
+        private static void OnClosed()
         {
             Closed?.Invoke();
+        }
+
+        /// <summary>
+        /// Signal emitted when an error has occured.
+        /// </summary>
+        private static void OnError(Exception exception)
+        {
+            Error?.Invoke(exception);
         }
 
         /// <summary>
         /// Signal emitted when a matchmaker match happened with another user.
         /// </summary>
         /// <param name="matched"></param>
-        private static void NakamaSocketOnReceivedMatchmakerMatched(IMatchmakerMatched matched)
+        private static void OnReceivedMatchmakerMatched(IMatchmakerMatched matched)
         {
-            MatchmakerStatusReceived?.Invoke(matched);
+            MatchmakerMatched?.Invoke(matched);
         }
 
         
@@ -443,6 +491,15 @@ namespace B4DLib
             {
                 GD.PrintErr(e);
             }
+        }
+
+        /// <summary>
+        /// Get the current session user ID
+        /// </summary>
+        /// <returns>User ID</returns>
+        public static string GetUserId()
+        {
+            return NakamaSession.UserId;
         }
 
 
