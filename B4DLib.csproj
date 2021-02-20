@@ -1,13 +1,17 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>7.3</LangVersion>
   </PropertyGroup>
 
   <ItemGroup>
     <Compile Remove="Lib\**" />
     <EmbeddedResource Remove="Lib\**" />
     <None Remove="Lib\**" />
+    <Compile Remove="B4DTests\**" />
+    <EmbeddedResource Remove="B4DTests\**" />
+    <None Remove="B4DTests\**" />
   </ItemGroup>
 
   <ItemGroup>
@@ -17,6 +21,9 @@
   <ItemGroup>
     <Reference Include="GodotSharp">
       <HintPath>Lib\GodotSharp.dll</HintPath>
+    </Reference>
+    <Reference Include="GodotSharpEditor">
+      <HintPath>Lib\GodotSharpEditor.dll</HintPath>
     </Reference>
     <Reference Include="Nakama">
       <HintPath>Lib\Nakama.dll</HintPath>

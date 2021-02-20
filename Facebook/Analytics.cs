@@ -17,7 +17,7 @@ namespace B4DLib.Facebook
             if (!Engine.HasSingleton(SingletonName)) return false;
          
             AnalyticsObj = Engine.GetSingleton(SingletonName);
-            AnalyticsObj.Call("Init", appId);
+            AnalyticsObj?.Call("Init", appId);
             GD.Print("Facebook Analytics Has Been Initialized");
             
             return true;
@@ -29,7 +29,7 @@ namespace B4DLib.Facebook
         /// <param name="autoInitEnabled"></param>
         public static void SetAutoInitEnabled(bool autoInitEnabled)
         {
-            AnalyticsObj.Call("setAutoInitEnabled", autoInitEnabled);
+            AnalyticsObj?.Call("setAutoInitEnabled", autoInitEnabled);
         }
 
         /// <summary>
@@ -38,7 +38,7 @@ namespace B4DLib.Facebook
         /// <param name="autoLogEnabled"></param>
         public static void SetAutoLogAppEventsEnabled(bool autoLogEnabled)
         {
-            AnalyticsObj.Call("setAutoLogAppEventsEnabled", autoLogEnabled);
+            AnalyticsObj?.Call("setAutoLogAppEventsEnabled", autoLogEnabled);
         }
 
         /// <summary>
@@ -47,7 +47,7 @@ namespace B4DLib.Facebook
         /// <param name="idCollectionEnabled"></param>
         public static void SetAdvertiserIdCollectionEnabled(bool idCollectionEnabled)
         {
-            AnalyticsObj.Call("setAdvertiserIdCollectionEnabled", idCollectionEnabled);
+            AnalyticsObj?.Call("setAdvertiserIdCollectionEnabled", idCollectionEnabled);
         }
 
         /// <summary>
@@ -56,7 +56,7 @@ namespace B4DLib.Facebook
         /// <param name="debugEnabled"></param>
         public static void SetDebugEnabled(bool debugEnabled)
         {
-            AnalyticsObj.Call("setDebugEnabled", debugEnabled);
+            AnalyticsObj?.Call("setDebugEnabled", debugEnabled);
         }
 
         /// <summary>
@@ -65,7 +65,7 @@ namespace B4DLib.Facebook
         /// <param name="adType"></param>
         public static void LogAdClickEvent(string adType)
         {
-            AnalyticsObj.Call("logAdClickEvent", adType);
+            AnalyticsObj?.Call("logAdClickEvent", adType);
         }
 
         /// <summary>
@@ -74,7 +74,7 @@ namespace B4DLib.Facebook
         /// <param name="eventName"></param>
         public static void LogCustomEvent(string eventName)
         {
-            AnalyticsObj.Call("logCustomEvent", eventName);
+            AnalyticsObj?.Call("logCustomEvent", eventName);
         }
 
         /// <summary>
@@ -82,9 +82,9 @@ namespace B4DLib.Facebook
         /// </summary>
         /// <param name="eventName"></param>
         /// <param name="valueToSum"></param>
-        public static void LogCustomSumEvent(string eventName , double valueToSum)
+        public static void LogCustomSumEvent(string eventName , int valueToSum)
         {
-            AnalyticsObj.Call("logCustomSumEvent", eventName , valueToSum);
+            AnalyticsObj?.Call("logCustomSumEvent", eventName , valueToSum);
         }
 
     }
